@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Eclipse Neon
+Comment=Eclipse Neon IDE for Java EE Developer
+Type=Application
+Encoding=UTF-8
+Exec=/usr/local/bin/eclipse
+Icon=/opt/eclipse/icon.xpm
+Categories=GNOME;Application;Development;
+Terminal=false
+StartupNotify=true
+

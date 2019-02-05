@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Anaconda-Navigator
+Comment=Scientific Python Development Environment - Python3
+Type=Application
+Exec=bash -c 'export PATH="/home/<USER>/anaconda3/bin:$PATH" && source /home/<USER>/anaconda3/bin/activate && /home/<USER>/anaconda3/bin/anaconda-navigator'
+Icon=/home/<USER>/anaconda3/lib/python3.7/site-packages/anaconda_navigator/static/images/anaconda-icon-256x256.png
+Categories=GNOME;Development;Science;IDE;Qt;Education;
+Terminal=false
+StartupNotify=true
+MimeType=text/x-python;
+

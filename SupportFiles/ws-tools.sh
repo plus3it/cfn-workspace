@@ -40,16 +40,15 @@ gradle_source_dir="gradle"
 gradle_file="gradle-5.1.1-bin.zip"
 gradle_install_dir="/opt/gradle-5.1.1"
 
-git_source_dir="git"
-git_file="endpoint-repo-1.7-1.x86_64.rpm"
-
 nodejs_source_dir="nodejs"
-nodejs_file="node-v11.6.0-linux-x64.tar.xz"
-nodejs_install_dir="/opt/node-v11.6.0-linux-x64"
+NODEJS_BASE="node-v11.6.0-linux-x64"
+nodejs_file="${NODEJS_BASE}.tar.xz"
+nodejs_install_dir="/opt/${NODEJS_BASE}"
 
 pycharm_source_dir="pycharm"
-pycharm_file="pycharm-community-2018.3.3.tar.gz"
-pycharm_install_dir="/opt/pycharm-community-2018.3.3"
+PYCHARM_BASE="pycharm-community-2018.3.3"
+pycharm_file="${PYCHARM_BASE}.tar.gz"
+pycharm_install_dir="/opt/${PYCHARM_BASE}"
 
 asciidoctor_source_dir="asciidoctor"
 asciidoctor_file="rubygem-asciidoctor-1.5.6.1-1.el7.noarch.rpm"
@@ -61,9 +60,8 @@ mongodb_source_dir="mongo"
 mongodb_file="mongodb-org-shell-4.0.5-1.el7.x86_64.rpm"
 
 mysql_source_dir="mysql"
-mysql_file="mysql80-community-release-el7-1.noarch.rpm"
+mysql_file="mysql-workbench-community-8.0.13-1.el7.x86_64.rpm"
 epel_6_8_file="epel-release-6-8.noarch.rpm"
-epel_7_11_file="epel-release-7-11.noarch.rpm"
 
 joomla_source_dir="joomla"
 joomla_file="Joomla_3.9.2-Stable-Full_Package.tar.gz"
@@ -87,13 +85,24 @@ function err_exit {
 
 
 # Install GNOME
-printf 'Installing GNOME ... '
-yum -y groups install 'GNOME Desktop' && echo 'Success' || err_exit "Installing GNOME Desktop failed"
-systemctl set-default graphical.target
+# shellcheck disable=SC2143
+if [[ $(yum grouplist -v | grep GNOME) ]]
+then
+	printf 'Installing GNOME ... '
+	yum -y groups install 'GNOME Desktop' && echo 'Success' || err_exit "Installing GNOME Desktop failed"
+	systemctl set-default graphical.target
+else
+	err_exit "GNOME Desktop group package is not found"
+fi
 
 # Install VNC server
-printf 'Installing Tiger VNC Server ... '
-yum -y install tigervnc-server || err_exit "Failed to install TigerVNC Server."
+if [[ $( yum list "tigervnc-server" > /dev/null )$? -eq 0 ]]
+then
+	printf 'Installing Tiger VNC Server ... '
+	yum -y install tigervnc-server || err_exit "Failed to install TigerVNC Server."
+else
+	err_exit "tigervnc-server package is not found"
+fi
 
 # Generate default VNC server password
 # The "VNCServerPaswd" will be replaced with the VNCServerPasswd parameter and "WorkstationUser" with the WorkstationUser parameter in the CFN during runtime
@@ -130,11 +139,17 @@ else
 fi
 
 cp /etc/cfn/tools/anaconda/anaconda.desktop /usr/share/applications/anaconda.desktop
-cp /etc/cfn/tools/anaconda/anaconda.desktop "${workstation_user_home}/.local/share/applications/anaconda.desktop"
+sed -i "s/<USER>/${WorkstationUser}/g" /usr/share/applications/anaconda.desktop
+cp /usr/share/applications/anaconda.desktop "${workstation_user_home}/.local/share/applications/anaconda.desktop"
 
 # Install ATOM
-printf 'Installing ATOM ... '
-yum -y install "${tool_home}/${atom_source_dir}/${atom_file}" && echo 'Success' || err_exit "Installing ATOM failed"
+if [ -f "${tool_home}/${atom_source_dir}/${atom_file}" ]
+then
+	printf 'Installing ATOM ... '
+	yum -y install "${tool_home}/${atom_source_dir}/${atom_file}" && echo 'Success' || err_exit "Installing ATOM failed"
+else
+	err_exit "${tool_home}/${atom_source_dir}/${atom_file}} is not found"
+fi
 
 #Install Eclipse NEON IDE for Java EE Developers
 if [ -f "${tool_home}/${eclipse_source_dir}/${eclipse_file}" ]
@@ -164,8 +179,13 @@ cp /etc/cfn/tools/intellij/jetbrains-idea-ce.desktop /usr/share/applications/jet
 cp /etc/cfn/tools/intellij/jetbrains-idea-ce.desktop "${workstation_user_home}/.local/share/applications/jetbrains-idea-ce.desktop"
 
 #Install emacs
-printf 'Installing emacs ... '
-yum -y install emacs && echo 'Success' || err_exit "Installing emacs failed"
+if [[ $( yum list "emacs" > /dev/null )$? -eq 0 ]]
+then
+	printf 'Installing emacs ... '
+	yum -y install emacs && echo 'Success' || err_exit "Installing emacs failed"
+else
+	err_exit "emac rpm package is not found"
+fi
 
 #Install gradle
 if [ -f "${tool_home}/${gradle_source_dir}/${gradle_file}" ]
@@ -180,26 +200,38 @@ chmod -R 755 ${gradle_install_dir}
 ln -s "${gradle_install_dir}/bin/gradle" /usr/local/bin/gradle
 
 # Install maven
-printf 'Installing maven ... '
-yum -y install maven && echo 'Success' || err_exit "Install maven failed"
-
-# Install git
-if [ -f "${tool_home}/${git_source_dir}/${git_file}" ]
+if [[ $( yum list "maven" > /dev/null )$? -eq 0 ]]
 then
-	printf 'Installing git rpm ... '
-	rpm -Uvh "${tool_home}/${git_source_dir}/${git_file}" && echo 'Success' || err_exit "Installing ${git_file} failed"
+	printf 'Installing maven ... '
+	yum -y install maven && echo 'Success' || err_exit "Install maven failed"
 else
-	err_exit "${tool_home}/${git_source_dir}/${git_file} is not found"
+	err_exit "maven rpm package is not found"
 fi
 
-printf 'Installing git ... '
-yum -y install git && echo 'Success' || err_exit "Installing git failed"
-printf 'Installing git-gui ... '
-yum -y install git-gui && echo 'Success' || err_exit "Installing git-gui failed"
+# Install git
+if [[ $( yum list "git" > /dev/null )$? -eq 0 ]]
+then
+	printf 'Installing git ... '
+	yum -y install git && echo 'Success' || err_exit "Installing git failed"
+else
+	err_exit "git package is not found"
+fi
+if [[ $( yum list "git-gui" > /dev/null )$? -eq 0 ]]
+then
+	printf 'Installing git-gui ... '
+	yum -y install git-gui && echo 'Success' || err_exit "Installing git-gui failed"
+else
+	err_exit "git-gui package is not found"
+fi
 
 # Install ruby
-printf 'Installing ruby ... '
-yum -y install ruby && echo 'Success' || err_exit "Install ruby failed"
+if [[ $( yum list "ruby" > /dev/null )$? -eq 0 ]]
+then
+	printf 'Installing ruby ... '
+	yum -y install ruby && echo 'Success' || err_exit "Install ruby failed"
+else
+	err_exit "ruby rpm package is not found"
+fi
 
 # Install node.js
 if [ -f "${tool_home}/${nodejs_source_dir}/${nodejs_file}" ]
@@ -228,52 +260,45 @@ ln -s "${pycharm_install_dir}/bin/pycharm.sh" /usr/local/bin/pycharm
 cp /etc/cfn/tools/pycharm/pycharm.desktop /usr/share/applications/pycharm.desktop
 cp /etc/cfn/tools/pycharm/pycharm.desktop "${workstation_user_home}/.local/share/applications/pycharm.desktop"
 
-# Install asciidoctor tool chains 
+# Install asciidoctor tool chains - rubygem-asciidoctor
 if [ -f "${tool_home}/${asciidoctor_source_dir}/${asciidoctor_file}" ]
 then
-	printf 'Installing asciidoctor rpm ... '
-	rpm -Uvh "${tool_home}/${asciidoctor_source_dir}/${asciidoctor_file}" && echo 'Success' || err_exit "Installing ${asciidoctor_file} failed"
+	printf 'Installing asciidoctor ... '
+	yum -y install "${tool_home}/${asciidoctor_source_dir}/${asciidoctor_file}" && echo 'Success' || err_exit "Installing rubygem-asciidoctor failed"
 else
 	err_exit "${tool_home}/${asciidoctor_source_dir}/${asciidoctor_file} is not found"
 fi
 
-printf 'Installing asciidoctor ... '
-yum -y install rubygem-asciidoctor && echo 'Success' || err_exit "Installing rubygem-asciidoctor failed"
-
-# Install Visual Studio Code
+# Install Visual Studio Code - code
 if [ -f "${tool_home}/${vscode_source_dir}/${vscode_file}" ]
 then
-	printf 'Installing Visual Studio Code rpm ... '
-	rpm -Uvh "${tool_home}/${vscode_source_dir}/${vscode_file}" && echo 'Success' || err_exit "Installing ${vscode_file} failed"
+	printf 'Installing Visual Studio Code ... '
+	yum -y install code "${tool_home}/${vscode_source_dir}/${vscode_file}" && echo 'Success' || err_exit "Install code failed"       
 else
 	err_exit "${tool_home}/${vscode_source_dir}/${vscode_file} is not found"
 fi
 
-printf 'Installing Visual Studio Code ... '
-yum -y install code && echo 'Success' || err_exit "Install code failed"       
-
-# Install Mongo db Client – Mongo Shell                                          
+# Install Mongo db Client – mongodb-org-shell                                       
 if [ -f "${tool_home}/${mongodb_source_dir}/${mongodb_file}" ]
 then
-	printf 'Installing Mongo DB shell rpm ... '
-	rpm -Uvh "${tool_home}/${mongodb_source_dir}/${mongodb_file}" && echo 'Success' || err_exit "Installing ${mongodb_file} failed"
+	printf 'Installing Mongo DB shell ... '
+	yum install -y "${tool_home}/${mongodb_source_dir}/${mongodb_file}" && echo 'Success' || err_exit "Installing mongodb-org-shell failed"       
 else
 	err_exit "${tool_home}/${mongodb_source_dir}/${mongodb_file} is not found"
 fi
 
-printf 'Installing Mongo DB shell ... '
-yum install -y mongodb-org-shell && echo 'Success' || err_exit "Installing mongodb-org-shell failed"       
 
-# Install MySQL Workbench
+# Install MySQL Workbench - mysql-workbench-community
 # The "proj" libary is required by mysql-workbench but missing from the epel-release-7-11.
 # Therefore, remove epel-release-7-11; and install epel-release-6-8.  We will remove epel-release-6-8
 # and re-install epel-release-7-11 later
-rpm -e epel-release-7-11.noarch
+printf 'Uninstalling epel-release-7-11.noarch ... '
+yum -y remove epel-release-7-11.noarch && echo 'Success' || err_exit "Uninstalling epel-release-7-11.noarch failed" 
 
 if [ -f "${tool_home}/${mysql_source_dir}/${epel_6_8_file}" ]
 then
 	printf 'Installing epel-release-6-8 rpm ... '
-	rpm -Uvh "${tool_home}/${mysql_source_dir}/${epel_6_8_file}" && echo 'Success' || err_exit "Installing ${epel_6_8_file} failed"
+	yum -y install "${tool_home}/${mysql_source_dir}/${epel_6_8_file}" && echo 'Success' || err_exit "Installing ${epel_6_8_file} failed"
 else
 	err_exit "${tool_home}/${mysql_source_dir}/${epel_6_8_file} is not found"
 fi
@@ -283,22 +308,14 @@ yum -y install proj && echo 'Success' || err_exit "Installing proj failed"
 
 if [ -f "${tool_home}/${mysql_source_dir}/${mysql_file}" ]
 then
-	printf 'Installing mysql rpm ... '
-	rpm -Uvh "${tool_home}/${mysql_source_dir}/${mysql_file}" && echo 'Success' || err_exit "Installing ${mysql_file} failed"
+	printf 'Installing mysql workbench ... '
+	yum -y install "${tool_home}/${mysql_source_dir}/${mysql_file}" && echo 'Success' || err_exit "Installing mysql-workbench failed"
 else
 	err_exit "${tool_home}/${mysql_source_dir}/${mysql_file} is not found"
 fi
 
-printf 'Installing mysql workbench ... '
-yum -y install mysql-workbench-community && echo 'Success' || err_exit "Installing mysql-workbench failed"
-
-if [ -f "${tool_home}/${mysql_source_dir}/${epel_7_11_file}" ]
-then
-	printf 'Installing epel-release-7-11 rpm ... '
-	rpm -Uvh "${tool_home}/${mysql_source_dir}/${epel_7_11_file}" && echo 'Success' || err_exit "Installing ${epel_7_11_file} failed"
-else
-	err_exit "${tool_home}/${mysql_source_dir}/${epel_7_11_file} is not found"
-fi
+printf 'Installing epel-release-7-11.noarch ... '
+yum -y install epel-release-7-11.noarch && echo 'Success' || err_exit "Installing epel-release-7-11.noarch failed"
 
 # Install Joomla  (Need LAMP stack which includes Apache (2.x+), PHP (5.3.10+)  and MySQL / MariaDB (5.1+)) 
 printf 'Installing httpd ... '
@@ -334,16 +351,13 @@ chmod -R 700 "${workstation_user_home}/.local/share/applications"
 
 # Add firewall rules
 setenforce 0
-
 # for VNC server
 firewall-cmd --add-port=5901/tcp
 firewall-cmd --add-port=5901/tcp --permanent
-
 # for Joomla
 #firewall-cmd --permanent --add-service=http
 firewall-cmd --permanent --add-service=https
 firewall-cmd --reload
-
 setenforce 1
 printf 'Setting firewall rules ... Success'
 
