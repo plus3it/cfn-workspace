@@ -97,11 +97,6 @@ yum -y install tigervnc-server || err_exit "Failed to install TigerVNC Server."
 
 # Generate default VNC server password
 # The "VNCServerPaswd" will be replaced with the VNCServerPasswd parameter and "WorkstationUser" with the WorkstationUser parameter in the CFN during runtime
-#umask 0077
-#mkdir -p "${workstation_user_home}/.vnc"
-#chmod go-rwx "${workstation_user_home}/.vnc"
-#vncpasswd -f <<<${VNCServerPasswd}> "${workstation_user_home}/.vnc/passwd"
-#chown -R ${WorkstationUser}:${WorkstationUser} "${workstation_user_home}/.vnc"
 install -Dm 000700 -o ${WorkstationUser} -g ${WorkstationUser} -d "${workstation_user_home}/.vnc"
 install -Dm 000700 -o ${WorkstationUser} -g ${WorkstationUser} -b <( vncpasswd -f <<<${VNCServerPasswd} ) "${workstation_user_home}/.vnc/passwd"
 printf 'Generating default VNC Server password ... Success'
