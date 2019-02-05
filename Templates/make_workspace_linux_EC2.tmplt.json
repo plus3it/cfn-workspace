@@ -489,6 +489,24 @@
                 "mode": "000700",
                 "owner": "root"
               },
+			  "/etc/cfn/ws-tools.envs": {
+                "content": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "WORKSTATION_USER_NAME=",
+                       { "Ref" : "WorkstationUserName" },
+                      "\n",
+                      "VNC_SEREVER_PASSWD=",
+                      { "Ref" : "VNCServerPasswd" },
+                      "\n"
+                    ]
+                  ]
+				},
+				"group": "root",
+                "mode": "000444",
+                "owner": "root"
+              },
 			  "/etc/cfn/scripts/ws-tools.sh": {
                 "source": { "Ref": "InstallToolScriptURL" },
                 "group": "root",
@@ -612,16 +630,7 @@
           },
           "tools-install": {		  
             "commands": {
-              "1-replace": {
-                "command": { "Fn::Join" : [ "", [ "sed -i 's/StackName/", { "Ref": "AWS::StackName" },  "/g' /etc/cfn/scripts/ws-tools.sh" ] ] }
-              },
-              "2-replace": {
-                "command": { "Fn::Join" : [ "", [ "sed -i 's/WorkstationUser/", { "Ref" : "WorkstationUserName" },  "/g' /etc/cfn/scripts/ws-tools.sh" ] ] }
-              },
-              "3-replace": {
-                 "command": { "Fn::Join" : [ "", [ "sed -i 's/VNCServerPasswd/", { "Ref" : "VNCServerPasswd" },  "/g' /etc/cfn/scripts/ws-tools.sh" ] ] }
-              },
-              "4-tools-install": {
+              "1-tools-install": {
                 "command": "bash -xe /etc/cfn/scripts/ws-tools.sh"
               }
             }

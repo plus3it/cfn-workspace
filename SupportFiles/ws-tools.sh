@@ -97,11 +97,13 @@ yum -y install tigervnc-server || err_exit "Failed to install TigerVNC Server."
 
 # Generate default VNC server password
 # The "VNCServerPaswd" will be replaced with the VNCServerPasswd parameter and "WorkstationUser" with the WorkstationUser parameter in the CFN during runtime
-umask 0077
-mkdir -p "${workstation_user_home}/.vnc"
-chmod go-rwx "${workstation_user_home}/.vnc"
-vncpasswd -f <<<${VNCServerPasswd}> "${workstation_user_home}/.vnc/passwd"
-chown -R ${WorkstationUser}:${WorkstationUser} "${workstation_user_home}/.vnc"
+#umask 0077
+#mkdir -p "${workstation_user_home}/.vnc"
+#chmod go-rwx "${workstation_user_home}/.vnc"
+#vncpasswd -f <<<${VNCServerPasswd}> "${workstation_user_home}/.vnc/passwd"
+#chown -R ${WorkstationUser}:${WorkstationUser} "${workstation_user_home}/.vnc"
+install -Dm 000700 -o ${WorkstationUser} -g ${WorkstationUser} -d "${workstation_user_home}/.vnc"
+install -Dm 000700 -o ${WorkstationUser} -g ${WorkstationUser} -b <( vncpasswd -f <<<${VNCServerPasswd} ) "${workstation_user_home}/.vnc/passwd"
 printf 'Generating default VNC Server password ... Success'
 
 # Configure VNC server
@@ -111,13 +113,6 @@ systemctl daemon-reload
 systemctl start vncserver@:1
 systemctl enable vncserver@:1
 printf 'Configuring VNC Server ... Success'
-
-# Add firewall VNC server firewall rules
-setenforce 0
-firewall-cmd --add-port=5901/tcp
-firewall-cmd --add-port=5901/tcp --permanent
-setenforce 1
-printf 'Setting firewall rule for VNC Server ... Success'
 
 # Unzip the tools.tar.gz
 if [ -f "${tool_home}/${tool_bundle_file}" ]
@@ -299,7 +294,6 @@ else
 	err_exit "${tool_home}/${mysql_source_dir}/${mysql_file} is not found"
 fi
 
-#yum -y install mysql-server || err_exit "Failed to install mysql-server"
 printf 'Installing mysql workbench ... '
 yum -y install mysql-workbench-community && echo 'Success' || err_exit "Installing mysql-workbench failed"
 
@@ -310,9 +304,6 @@ then
 else
 	err_exit "${tool_home}/${mysql_source_dir}/${epel_7_11_file} is not found"
 fi
-
-#systemctl start mysqld
-#systemctl enable mysqld
 
 # Install Joomla  (Need LAMP stack which includes Apache (2.x+), PHP (5.3.10+)  and MySQL / MariaDB (5.1+)) 
 printf 'Installing httpd ... '
@@ -335,12 +326,6 @@ chown -R apache:apache /var/www/html/
 chmod -R 775 /var/www/html/
 systemctl restart httpd
 
-setenforce 0
-#firewall-cmd --permanent --add-service=http
-firewall-cmd --permanent --add-service=https
-firewall-cmd --reload
-setenforce 1
-printf 'Setting firewall rule for Joomla ... Success'
 
 # Install Qt Assistant first and creator second.  Don't change the order because of package dependence.
 printf 'Installing qt-creator ... '
@@ -352,6 +337,22 @@ yum -y install qt-assistant && echo 'Success' || err_exit "Installing qt-assista
 chown -R ${WorkstationUser}:${WorkstationUser} ${workstation_user_home}
 chmod -R 700 "${workstation_user_home}/.local/share/applications"
 
-# (TODO) Remove rpm files
+# Add firewall rules
+setenforce 0
+
+# for VNC server
+firewall-cmd --add-port=5901/tcp
+firewall-cmd --add-port=5901/tcp --permanent
+
+# for Joomla
+#firewall-cmd --permanent --add-service=http
+firewall-cmd --permanent --add-service=https
+firewall-cmd --reload
+
+setenforce 1
+printf 'Setting firewall rules ... Success'
+
+# Remove rpm files
 printf 'Removing tools.tar.gz ... '
+rm /etc/cfn/ws-tools.envs
 rm /etc/cfn/tools/tools.tar.gz && echo 'Success' || err_exit "Deleting tools bundle failed"
