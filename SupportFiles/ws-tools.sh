@@ -1,148 +1,336 @@
 #!/bin/bash
+#
+# Script to install various of developer applications/tools on a 
+# a STIG-harened, Enterprise Linux 7 "workstation"
+#
+#################################################################
+# shellcheck disable=SC2086
+# shellcheck disable=SC2015
+PROGNAME="$(basename ${0})"
 
-# The "StackName" will be replaced with the AWS::StackName during runtime
+# Pull settings from env-file
+# shellcheck disable=SC2163
+while read -r WSENV
+do
+   export "${WSENV}"
+done < /etc/cfn/ws-tools.envs
+WorkstationUser="${WORKSTATION_USER_NAME:-UNDEF}"
+VNCServerPasswd="${VNC_SEREVER_PASSWD:-UNDEF}"
+
+# Setting up varilables
+workstation_user_home="/home/${WorkstationUser}"
+tool_home="/etc/cfn/tools"
+tool_bundle_file="tools.tar.gz"
+
+anaconda_dir="anaconda"
+anaconda_file="anaconda.sh"
+anaconda_install_dir="${workstation_user_home}/anaconda3"
+
+atom_source_dir="atom"
+atom_file="atom.x86_64.rpm"
+
+eclipse_source_dir="eclipse"
+eclipse_file="eclipse-jee-neon-3-linux-gtk-x86_64.tar.gz"
+
+intellij_source_dir="intellij"
+intellij_file="ideaIC-2018.3.3.tar.gz"
+intellij_install_dir="/opt/idea-IC-183.5153.38"
+
+gradle_source_dir="gradle"
+gradle_file="gradle-5.1.1-bin.zip"
+gradle_install_dir="/opt/gradle-5.1.1"
+
+git_source_dir="git"
+git_file="endpoint-repo-1.7-1.x86_64.rpm"
+
+nodejs_source_dir="nodejs"
+nodejs_file="node-v11.6.0-linux-x64.tar.xz"
+nodejs_install_dir="/opt/node-v11.6.0-linux-x64"
+
+pycharm_source_dir="pycharm"
+pycharm_file="pycharm-community-2018.3.3.tar.gz"
+pycharm_install_dir="/opt/pycharm-community-2018.3.3"
+
+asciidoctor_source_dir="asciidoctor"
+asciidoctor_file="rubygem-asciidoctor-1.5.6.1-1.el7.noarch.rpm"
+
+vscode_source_dir="vscode"
+vscode_file="code-1.30.2-1546901769.el7.x86_64.rpm"
+
+mongodb_source_dir="mongo"
+mongodb_file="mongodb-org-shell-4.0.5-1.el7.x86_64.rpm"
+
+mysql_source_dir="mysql"
+mysql_file="mysql80-community-release-el7-1.noarch.rpm"
+epel_6_8_file="epel-release-6-8.noarch.rpm"
+epel_7_11_file="epel-release-7-11.noarch.rpm"
+
+joomla_source_dir="joomla"
+joomla_file="Joomla_3.9.2-Stable-Full_Package.tar.gz"
+
+# Set up an error logging and exit-state
 function err_exit {
-	echo "${1}"
-	logger -p kern.crit -t ws-tools.sh "${1}"
-	/opt/aws/bin/cfn-signal -e 1 --stack StackName --resource Ec2instance
-	exit 1
+   local ERRSTR="${1}"
+   local SCRIPTEXIT=${2:-1}
+
+   # Our output channels
+   logger -s -t "${PROGNAME}" -p kern.crit "${ERRSTR}"
+
+   # Need our exit to be an integer
+   if [[ ${SCRIPTEXIT} =~ ^[0-9]+$ ]]
+   then
+      exit "${SCRIPTEXIT}"
+   else
+      exit 1
+   fi
 }
 
+
 # Install GNOME
-yum -y groups install 'GNOME Desktop' || err_exit "Failed to install GNOME Desktop."
+printf 'Installing GNOME ... '
+yum -y groups install 'GNOME Desktop' && echo 'Success' || err_exit "Installing GNOME Desktop failed"
 systemctl set-default graphical.target
 
 # Install VNC server
+printf 'Installing Tiger VNC Server ... '
 yum -y install tigervnc-server || err_exit "Failed to install TigerVNC Server."
 
 # Generate default VNC server password
 # The "VNCServerPaswd" will be replaced with the VNCServerPasswd parameter and "WorkstationUser" with the WorkstationUser parameter in the CFN during runtime
 umask 0077
-mkdir -p /home/WorkstationUser/.vnc
-chmod go-rwx /home/WorkstationUser/.vnc
-vncpasswd -f <<<VNCServerPasswd> /home/WorkstationUser/.vnc/passwd
-chown -R WorkstationUser:WorkstationUser /home/WorkstationUser/.vnc
+mkdir -p "${workstation_user_home}/.vnc"
+chmod go-rwx "${workstation_user_home}/.vnc"
+vncpasswd -f <<<${VNCServerPasswd}> "${workstation_user_home}/.vnc/passwd"
+chown -R ${WorkstationUser}:${WorkstationUser} "${workstation_user_home}/.vnc"
+printf 'Generating default VNC Server password ... Success'
 
 # Configure VNC server
 cp /lib/systemd/system/vncserver@.service  /etc/systemd/system/vncserver@:1.service
-sed -i 's/<USER>/WorkstationUser/g' /etc/systemd/system/vncserver@:1.service
+sed -i "s/<USER>/${WorkstationUser}/g" /etc/systemd/system/vncserver@:1.service
 systemctl daemon-reload
 systemctl start vncserver@:1
 systemctl enable vncserver@:1
+printf 'Configuring VNC Server ... Success'
 
 # Add firewall VNC server firewall rules
 setenforce 0
 firewall-cmd --add-port=5901/tcp
 firewall-cmd --add-port=5901/tcp --permanent
 setenforce 1
+printf 'Setting firewall rule for VNC Server ... Success'
 
 # Unzip the tools.tar.gz
-tar xfz /etc/cfn/tools/tools.tar.gz -C /etc/cfn/tools || err_exit "Failed to unzip tools.tar.gz"
+if [ -f "${tool_home}/${tool_bundle_file}" ]
+then
+	printf 'Dearchiving tools.tar.gz ... '
+	sudo tar xfz "${tool_home}/${tool_bundle_file}" -C /etc/cfn/tools && echo 'Success'
+#elif [ gunzip -c test.txt "${tool_home}/${tool_bundle_file}" | tar t > /dev/null ] 
+#	err_exit "${tool_bundle_file} is not a compressed file"
+else
+	err_exit "${tool_bundle_file} is not found"
+fi
 
 # Install Anaconda
-bash /etc/cfn/tools/anaconda/anaconda.sh -b -p /home/WorkstationUser/anaconda3
-chown -R WorkstationUser:WorkstationUser /home/WorkstationUser/anaconda3
+if [ -f "${tool_home}/${anaconda_dir}/${anaconda_file}" ]
+then
+	printf 'Installing Anaconda ... '
+	bash "${tool_home}/${anaconda_dir}/${anaconda_file}" -b -p ${anaconda_install_dir} && echo 'Success' || err_exit "Installing Anaconda failed"
+else
+	err_exit "${tool_home}/${anaconda_dir}/${anaconda_file} is not found"
+fi
 
 cp /etc/cfn/tools/anaconda/anaconda.desktop /usr/share/applications/anaconda.desktop
-cp /etc/cfn/tools/anaconda/anaconda.desktop /home/WorkstationUser/.local/share/applications/anaconda.desktop
-chown WorkstationUser:WorkstationUser /home/WorkstationUser/.local/share/applications/anaconda.desktop
-chmod 600 /home/WorkstationUser/.local/share/applications/anaconda.desktop
+cp /etc/cfn/tools/anaconda/anaconda.desktop "${workstation_user_home}/.local/share/applications/anaconda.desktop"
 
 # Install ATOM
-# Launch it from your terminal by running the command "atom"
-yum -y install /etc/cfn/tools/atom/atom.x86_64.rpm || err_exit "Failed to install ATOM"
+printf 'Installing ATOM ... '
+yum -y install "${tool_home}/${atom_source_dir}/${atom_file}" && echo 'Success' || err_exit "Installing ATOM failed"
 
 #Install Eclipse NEON IDE for Java EE Developers
-tar xfz /etc/cfn/tools/eclipse/eclipse-jee-neon-3-linux-gtk-x86_64.tar.gz -C /opt/ || err_exit "Failed to unzip eclipse-jee-neon-3-linux-gtk-x86_64.tar.gz"
-ln -s /opt/eclipse/eclipse /usr/local/bin/eclipse
+if [ -f "${tool_home}/${eclipse_source_dir}/${eclipse_file}" ]
+then
+	printf 'Installing Eclipse NEON IDE ... '
+	tar xfz "${tool_home}/${eclipse_source_dir}/${eclipse_file}" -C /opt/ && echo 'Success' || err_exit "De-archiving ${eclipse_file} failed"
+else
+	err_exit "${tool_home}/${eclipse_source_dir}/${eclipse_file} is not found"
+fi
 
+ln -s /opt/eclipse/eclipse /usr/local/bin/eclipse
 cp /etc/cfn/tools/eclipse/eclipse.desktop /usr/share/applications/eclipse.desktop
-cp /etc/cfn/tools/eclipse/eclipse.desktop /home/WorkstationUser/.local/share/applications/eclipse.desktop
-chown WorkstationUser:WorkstationUser /home/WorkstationUser/.local/share/applications/eclipse.desktop
-chmod 600 /home/WorkstationUser/.local/share/applications/eclipse.desktop
+cp /etc/cfn/tools/eclipse/eclipse.desktop "${workstation_user_home}/.local/share/applications/eclipse.desktop"
 
 #Install Intellij
-tar xfz /etc/cfn/tools/intellij/ideaIC-2018.3.3.tar.gz -C /opt/ || err_exit "Failed to unzip ideaIC-2018.3.3.tar.gz"
-chmod -R 755 /opt/idea-IC-183.5153.38
-ln -s /opt/idea-IC-183.5153.38/bin/idea.sh /usr/local/bin/idea
+if [ -f "${tool_home}/${intellij_source_dir}/${intellij_file}" ]
+then
+	printf 'Installing Intellij ... '
+	tar xfz "${tool_home}/${intellij_source_dir}/${intellij_file}" -C /opt/ && echo 'Success' || err_exit "De-archiving ${intellij_file} failed"
+else
+	err_exit "${tool_home}/${intellij_source_dir}/${intellij_file} is not found"
+fi
 
+chmod -R 755 ${intellij_install_dir}
+ln -s "${intellij_install_dir}/bin/idea.sh" /usr/local/bin/idea
 cp /etc/cfn/tools/intellij/jetbrains-idea-ce.desktop /usr/share/applications/jetbrains-idea-ce.desktop
-cp /etc/cfn/tools/intellij/jetbrains-idea-ce.desktop /home/WorkstationUser/.local/share/applications/jetbrains-idea-ce.desktop
-chown WorkstationUser:WorkstationUser /home/WorkstationUser/.local/share/applications/jetbrains-idea-ce.desktop
-chmod 600 /home/WorkstationUser/.local/share/applications/jetbrains-idea-ce.desktop
+cp /etc/cfn/tools/intellij/jetbrains-idea-ce.desktop "${workstation_user_home}/.local/share/applications/jetbrains-idea-ce.desktop"
 
 #Install emacs
-yum -y install emacs || err_exit "Failed to install emacs"
+printf 'Installing emacs ... '
+yum -y install emacs && echo 'Success' || err_exit "Installing emacs failed"
 
-#Install Gradle
-unzip -d /opt/ /etc/cfn/tools/gradle/gradle-5.1.1-bin.zip
-chmod -R 755 /opt/gradle-5.1.1
-ln -s /opt/gradle-5.1.1/bin/gradle /usr/local/bin/gradle
+#Install gradle
+if [ -f "${tool_home}/${gradle_source_dir}/${gradle_file}" ]
+then
+	printf 'Installing gradle ... '
+	unzip -d /opt/ "${tool_home}/${gradle_source_dir}/${gradle_file}" && echo 'Success' || err_exit "Unziping ${gradle_file} failed"
+else
+	err_exit "${tool_home}/${gradle_source_dir}/${gradle_file} is not found"
+fi
 
-# Install Maven
-yum -y install maven || err_exit "Failed to install maven"
+chmod -R 755 ${gradle_install_dir}
+ln -s "${gradle_install_dir}/bin/gradle" /usr/local/bin/gradle
+
+# Install maven
+printf 'Installing maven ... '
+yum -y install maven && echo 'Success' || err_exit "Install maven failed"
 
 # Install git
-rpm -Uvh /etc/cfn/tools/git/endpoint-repo-1.7-1.x86_64.rpm
-yum -y install git  || err_exit "Failed to install git"
-yum -y install git-gui || err_exit "Failed to install git-gui"
+if [ -f "${tool_home}/${git_source_dir}/${git_file}" ]
+then
+	printf 'Installing git rpm ... '
+	rpm -Uvh "${tool_home}/${git_source_dir}/${git_file}" && echo 'Success' || err_exit "Installing ${git_file} failed"
+else
+	err_exit "${tool_home}/${git_source_dir}/${git_file} is not found"
+fi
+
+printf 'Installing git ... '
+yum -y install git && echo 'Success' || err_exit "Installing git failed"
+printf 'Installing git-gui ... '
+yum -y install git-gui && echo 'Success' || err_exit "Installing git-gui failed"
 
 # Install ruby
-yum -y install ruby || err_exit "Failed to install ruby"
+printf 'Installing ruby ... '
+yum -y install ruby && echo 'Success' || err_exit "Install ruby failed"
 
 # Install node.js
-tar -xvf  /etc/cfn/tools/nodejs/node-v11.6.0-linux-x64.tar.xz -C /opt
-chmod -R 755 /opt/node-v11.6.0-linux-x64
-ln -s /opt/node-v11.6.0-linux-x64/bin/node /usr/bin/node
-ln -s /opt/node-v11.6.0-linux-x64/bin/npm /usr/bin/npm
+if [ -f "${tool_home}/${nodejs_source_dir}/${nodejs_file}" ]
+then
+	printf 'Installing node.js ... '
+	tar -xvf  "${tool_home}/${nodejs_source_dir}/${nodejs_file}" -C /opt && echo 'Success' || err_exit "De-archiving ${nodejs_file} failed"
+else
+	err_exit "${tool_home}/${nodejs_source_dir}/${nodejs_file} is not found"
+fi
+
+chmod -R 755 ${nodejs_install_dir}
+ln -s "${nodejs_install_dir}/bin/node" /usr/bin/node
+ln -s "${nodejs_install_dir}/bin/npm" /usr/bin/npm
 
 # Install pycharm
-tar -xvf  /etc/cfn/tools/pycharm/pycharm-community-2018.3.3.tar.gz -C /opt
-chmod -R 755 /opt/pycharm-community-2018.3.3
-ln -s /opt/pycharm-community-2018.3.3/bin/pycharm.sh /usr/local/bin/pycharm 
+if [ -f "${tool_home}/${pycharm_source_dir}/${pycharm_file}" ]
+then
+	printf 'Installing pycharm ... '
+	tar -xvf  "${tool_home}/${pycharm_source_dir}/${pycharm_file}" -C /opt && echo 'Success' || err_exit "De-archiving ${pycharm_file} failed"
+else
+	err_exit "${tool_home}/${pycharm_source_dir}/${pycharm_file} is not found"
+fi
 
+chmod -R 755 ${pycharm_install_dir}
+ln -s "${pycharm_install_dir}/bin/pycharm.sh" /usr/local/bin/pycharm 
 cp /etc/cfn/tools/pycharm/pycharm.desktop /usr/share/applications/pycharm.desktop
-cp /etc/cfn/tools/pycharm/pycharm.desktop /home/WorkstationUser/.local/share/applications/pycharm.desktop
-chown WorkstationUser:WorkstationUser /home/WorkstationUser/.local/share/applications/pycharm.desktop
-chmod 600 /home/WorkstationUser/.local/share/applications/pycharm.desktop     
+cp /etc/cfn/tools/pycharm/pycharm.desktop "${workstation_user_home}/.local/share/applications/pycharm.desktop"
 
 # Install asciidoctor tool chains 
-rpm -Uvh /etc/cfn/tools/asciidoctor/rubygem-asciidoctor-1.5.6.1-1.el7.noarch.rpm  
-yum -y install rubygem-asciidoctor || err_exit "Failed to install rubygem-asciidoctor"
+if [ -f "${tool_home}/${asciidoctor_source_dir}/${asciidoctor_file}" ]
+then
+	printf 'Installing asciidoctor rpm ... '
+	rpm -Uvh "${tool_home}/${asciidoctor_source_dir}/${asciidoctor_file}" && echo 'Success' || err_exit "Installing ${asciidoctor_file} failed"
+else
+	err_exit "${tool_home}/${asciidoctor_source_dir}/${asciidoctor_file} is not found"
+fi
+
+printf 'Installing asciidoctor ... '
+yum -y install rubygem-asciidoctor && echo 'Success' || err_exit "Installing rubygem-asciidoctor failed"
 
 # Install Visual Studio Code
-rpm -Uvh /etc/cfn/tools/vscode/code-1.30.2-1546901769.el7.x86_64.rpm  
-yum -y install code || err_exit "Failed to install code"       
+if [ -f "${tool_home}/${vscode_source_dir}/${vscode_file}" ]
+then
+	printf 'Installing Visual Studio Code rpm ... '
+	rpm -Uvh "${tool_home}/${vscode_source_dir}/${vscode_file}" && echo 'Success' || err_exit "Installing ${vscode_file} failed"
+else
+	err_exit "${tool_home}/${vscode_source_dir}/${vscode_file} is not found"
+fi
+
+printf 'Installing Visual Studio Code ... '
+yum -y install code && echo 'Success' || err_exit "Install code failed"       
 
 # Install Mongo db Client – Mongo Shell                                          
-rpm -Uvh /etc/cfn/tools/mongo/mongodb-org-shell-4.0.5-1.el7.x86_64.rpm  
-sudo yum install -y mongodb-org-shell || err_exit "Failed to install mongodb-org-shell"       
+if [ -f "${tool_home}/${mongodb_source_dir}/${mongodb_file}" ]
+then
+	printf 'Installing Mongo DB shell rpm ... '
+	rpm -Uvh "${tool_home}/${mongodb_source_dir}/${mongodb_file}" && echo 'Success' || err_exit "Installing ${mongodb_file} failed"
+else
+	err_exit "${tool_home}/${mongodb_source_dir}/${mongodb_file} is not found"
+fi
 
-# Install MySQL and MySQL Workbench
+printf 'Installing Mongo DB shell ... '
+yum install -y mongodb-org-shell && echo 'Success' || err_exit "Installing mongodb-org-shell failed"       
+
+# Install MySQL Workbench
 # The "proj" libary is required by mysql-workbench but missing from the epel-release-7-11.
 # Therefore, remove epel-release-7-11; and install epel-release-6-8.  We will remove epel-release-6-8
 # and re-install epel-release-7-11 later
 rpm -e epel-release-7-11.noarch
-rpm -Uvh /etc/cfn/tools/mysql/epel-release-6-8.noarch.rpm
-yum -y install proj
 
-rpm -Uvh /etc/cfn/tools/mysql/mysql80-community-release-el7-1.noarch.rpm 
-yum -y install mysql-server || err_exit "Failed to install mysql-server"
-yum -y install mysql-workbench-community || err_exit "Failed to install mysql-workbench"
+if [ -f "${tool_home}/${mysql_source_dir}/${epel_6_8_file}" ]
+then
+	printf 'Installing epel-release-6-8 rpm ... '
+	rpm -Uvh "${tool_home}/${mysql_source_dir}/${epel_6_8_file}" && echo 'Success' || err_exit "Installing ${epel_6_8_file} failed"
+else
+	err_exit "${tool_home}/${mysql_source_dir}/${epel_6_8_file} is not found"
+fi
 
-rpm -Uvh /etc/cfn/tools/mysql/epel-release-7-11.noarch.rpm
+printf 'Installing proj ... '
+yum -y install proj && echo 'Success' || err_exit "Installing proj failed"
 
-systemctl start mysqld
-systemctl enable mysqld
+if [ -f "${tool_home}/${mysql_source_dir}/${mysql_file}" ]
+then
+	printf 'Installing mysql rpm ... '
+	rpm -Uvh "${tool_home}/${mysql_source_dir}/${mysql_file}" && echo 'Success' || err_exit "Installing ${mysql_file} failed"
+else
+	err_exit "${tool_home}/${mysql_source_dir}/${mysql_file} is not found"
+fi
 
+#yum -y install mysql-server || err_exit "Failed to install mysql-server"
+printf 'Installing mysql workbench ... '
+yum -y install mysql-workbench-community && echo 'Success' || err_exit "Installing mysql-workbench failed"
+
+if [ -f "${tool_home}/${mysql_source_dir}/${epel_7_11_file}" ]
+then
+	printf 'Installing epel-release-7-11 rpm ... '
+	rpm -Uvh "${tool_home}/${mysql_source_dir}/${epel_7_11_file}" && echo 'Success' || err_exit "Installing ${epel_7_11_file} failed"
+else
+	err_exit "${tool_home}/${mysql_source_dir}/${epel_7_11_file} is not found"
+fi
+
+#systemctl start mysqld
+#systemctl enable mysqld
 
 # Install Joomla  (Need LAMP stack which includes Apache (2.x+), PHP (5.3.10+)  and MySQL / MariaDB (5.1+)) 
-yum -y install httpd || err_exit "Failed to install httpd"  
+printf 'Installing httpd ... '
+yum -y install httpd && echo 'Success' || err_exit "Installing httpd failed"  
 systemctl start httpd
 systemctl enable httpd
 
-yum -y install php php-mysql php-pdo php-gd php-mbstring
-tar -xvf /etc/cfn/tools/joomla/Joomla_3.9.2-Stable-Full_Package.tar.gz -C /var/www/html
+printf 'Installing php php-mysql php-pdo php-gd php-mbstring ... '
+yum -y install php php-mysql php-pdo php-gd php-mbstring && echo 'Success' || err_exit "Installing php, php-mysql, php-pdo, php-gd, or php-mbstring failed"
+
+if [ -f "${tool_home}/${joomla_source_dir}/${joomla_file}" ]
+then
+	printf 'Installing Joomla ... '
+	tar -xvf "${tool_home}/${joomla_source_dir}/${joomla_file}" -C /var/www/html && echo 'Success' || err_exit "De-archiving ${joomla_file} failed"
+else
+	err_exit "${tool_home}/${joomla_source_dir}/${joomla_file} is not found"
+fi
+
 chown -R apache:apache /var/www/html/
 chmod -R 775 /var/www/html/
 systemctl restart httpd
@@ -152,10 +340,18 @@ setenforce 0
 firewall-cmd --permanent --add-service=https
 firewall-cmd --reload
 setenforce 1
+printf 'Setting firewall rule for Joomla ... Success'
 
-# Install Qt Assistant and creator
-yum -y install qt-creator || err_exit "Failed to install qt-creator"
-yum -y install qt-assistant || err_exit "Failed to install qt-assistant"
+# Install Qt Assistant first and creator second.  Don't change the order because of package dependence.
+printf 'Installing qt-creator ... '
+yum -y install qt-creator && echo 'Success' || err_exit "Installing qt-creator failed"
+printf 'Installing qt-assistant... '
+yum -y install qt-assistant && echo 'Success' || err_exit "Installing qt-assistant failed"
 
+# Change ownership and permission for files in user home
+chown -R ${WorkstationUser}:${WorkstationUser} ${workstation_user_home}
+chmod -R 700 "${workstation_user_home}/.local/share/applications"
 
 # (TODO) Remove rpm files
+printf 'Removing tools.tar.gz ... '
+rm /etc/cfn/tools/tools.tar.gz && echo 'Success' || err_exit "Deleting tools bundle failed"
