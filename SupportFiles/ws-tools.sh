@@ -62,7 +62,7 @@ mongodb_file="mongodb-org-shell-4.0.5-1.el7.x86_64.rpm"
 # MySQL constants
 mysql_source_dir="mysql"
 mysql_file="mysql-workbench-community-8.0.13-1.el7.x86_64.rpm"
-epel_6_8_file="epel-release-6-8.noarch.rpm"
+## epel_6_8_file="epel-release-6-8.noarch.rpm"
 # Joomla constants
 joomla_source_dir="joomla"
 joomla_file="Joomla_3.9.2-Stable-Full_Package.tar.gz"
@@ -96,15 +96,15 @@ function err_exit {
 ####
 # Install GNOME
 # shellcheck disable=SC2143
-if [[ $(yum grouplist -v | grep GNOME) ]]
+if [[ $( yum grouplist -v | grep GNOME ) ]]
 then
    printf "Installing GNOME ... "
    yum install -y @gnome-desktop && echo "Success" || \
      err_exit "Installing GNOME Desktop failed"
 
-   printf "Changing systemd target-state to "graphical"
+   printf "Changing systemd target-state to \"graphical\""
    systemctl set-default graphical.target && echo "Success" || \
-     err_exit "Couldn't set systemd target-state to 'graphical.target'"
+     err_exit "Could not set systemd target-state to 'graphical.target'"
 else
    err_exit "GNOME Desktop group package is not found"
 fi
@@ -150,16 +150,16 @@ systemctl enable vncserver@:1 && echo "Success" || \
 
 
 # Unzip the tools.tar.gz
-if [ -f "${tool_home}/${tool_bundle_file}" ]
+if [[ -f ${tool_home}/${tool_bundle_file} ]]
 then
-   printf "Dearchiving ${tool_bundle_file}... "
+   printf "Dearchiving %s... " "${tool_bundle_file}"
    tar xfz "${tool_home}/${tool_bundle_file}" -C "${tool_home}" && echo "Success"
 else
    err_exit "${tool_bundle_file} is not found"
 fi
 
 # Install Anaconda
-if [ -f "${tool_home}/${anaconda_dir}/${anaconda_file}" ]
+if [[ -f ${tool_home}/${anaconda_dir}/${anaconda_file} ]]
 then
    printf "Installing Anaconda ... "
    bash "${tool_home}/${anaconda_dir}/${anaconda_file}" -b -p \
@@ -169,7 +169,7 @@ else
    err_exit "${tool_home}/${anaconda_dir}/${anaconda_file} is not found"
 fi
 
-printf "Installing GNOME dt-config file for Anaconda... "
+printf "Installing system GNOME dt-config file for Anaconda... "
 cp "${tool_home}"/anaconda/anaconda.desktop \
   /usr/share/applications/anaconda.desktop && echo "Success" || \
     err_exit "Failed installing GNOME dt-config file for Anaconda"
@@ -179,14 +179,14 @@ sed -i "s/<USER>/${WorkstationUser}/g" \
   /usr/share/applications/anaconda.desktop && echo "Success" || \
     err_exit "Failed customizing GNOME dt-config file for Anaconda"
 
-printf "Installing ${WorkstationUser}'s GNOME dt-config file for Anaconda... "
+printf "Installing user GNOME dt-config file for Anaconda... "
 cp /usr/share/applications/anaconda.desktop \
   "${workstation_user_home}/.local/share/applications/anaconda.desktop" && \
     echo "Success" || \
       err_exit "Failed installing ${WorkstationUser}'s Anaconda dt-config file"
 
 # Install ATOM
-if [ -f "${tool_home}/${atom_source_dir}/${atom_file}" ]
+if [[ -f ${tool_home}/${atom_source_dir}/${atom_file} ]]
 then
    printf "Installing ATOM... "
    yum install -y "${tool_home}/${atom_source_dir}/${atom_file}" && \
@@ -196,7 +196,7 @@ else
 fi
 
 #Install Eclipse NEON IDE for Java EE Developers
-if [ -f "${tool_home}/${eclipse_source_dir}/${eclipse_file}" ]
+if [[ -f ${tool_home}/${eclipse_source_dir}/${eclipse_file} ]]
 then
    printf "Installing Eclipse NEON IDE ... "
    tar xfz "${tool_home}/${eclipse_source_dir}/${eclipse_file}" -C /opt/ && \
@@ -209,18 +209,18 @@ printf "Linking /opt/eclipse/eclipse into /usr/local/bin... "
 ln -s /opt/eclipse/eclipse /usr/local/bin/eclipse && echo "Success"
   err_exit "Failed linking /opt/eclipse/eclipse into /usr/local/bin... "
 
-printf "Installing Eclipse dt-config file for GNOME... "
+printf "Installing system Eclipse dt-config file for GNOME... "
 cp "${tool_home}"/eclipse/eclipse.desktop \
   /usr/share/applications/eclipse.desktop && echo "Success" || \
     err_exit "Failed installing Eclipse dt-config file for GNOME... "
 
-printf "Installing ${WorkstationUser}'s GNOME dt-config file for Eclipse... "
+printf "Installing user Eclipse dt-config file for Eclipse... "
 cp "${tool_home}"/eclipse/eclipse.desktop && \
   "${workstation_user_home}/.local/share/applications/eclipse.desktop" || \
       err_exit "Failed installing ${WorkstationUser}'s Eclipse dt-config file"
 
 #Install Intellij
-if [ -f "${tool_home}/${intellij_source_dir}/${intellij_file}" ]
+if [[ -f ${tool_home}/${intellij_source_dir}/${intellij_file} ]]
 then
    printf "Installing Intellij ... "
    tar xfz "${tool_home}/${intellij_source_dir}/${intellij_file}" -C /opt/ \
@@ -238,7 +238,7 @@ cp "${tool_home}"/intellij/jetbrains-idea-ce.desktop /usr/share/applications/jet
 cp "${tool_home}"/intellij/jetbrains-idea-ce.desktop "${workstation_user_home}/.local/share/applications/jetbrains-idea-ce.desktop"
 
 #Install emacs
-if [[ $( yum list "emacs" > /dev/null )$? -eq 0 ]]
+if [[ $( yum list emacs > /dev/null )$? -eq 0 ]]
 then
    printf "Installing emacs ... "
    yum install -y emacs && echo "Success" || err_exit "Installing emacs failed"
@@ -247,7 +247,7 @@ else
 fi
 
 #Install gradle
-if [ -f "${tool_home}/${gradle_source_dir}/${gradle_file}" ]
+if [[ -f ${tool_home}/${gradle_source_dir}/${gradle_file} ]]
 then
    printf "Installing gradle ... "
    unzip -d /opt/ "${tool_home}/${gradle_source_dir}/${gradle_file}" && \
@@ -265,7 +265,7 @@ ln -s "${gradle_install_dir}/bin/gradle" /usr/local/bin/gradle
   err_exit "Failed linking ${gradle_install_dir}/bin/gradle to /usr/local/bin/gradle"
 
 # Install maven
-if [[ $( yum list "maven" > /dev/null )$? -eq 0 ]]
+if [[ $( yum list maven > /dev/null )$? -eq 0 ]]
 then
    printf "Installing maven ... "
    yum install -y maven && echo "Success" || err_exit "Install maven failed"
@@ -274,7 +274,7 @@ else
 fi
 
 # Install git
-if [[ $( yum list "git" > /dev/null )$? -eq 0 ]]
+if [[ $( yum list git > /dev/null )$? -eq 0 ]]
 then
    printf "Installing git ... "
    yum install -y git && echo "Success" || err_exit "Installing git failed"
@@ -283,7 +283,7 @@ else
 fi
 
 # Install git-gui
-if [[ $( yum list "git-gui" > /dev/null )$? -eq 0 ]]
+if [[ $( yum list git-gui > /dev/null )$? -eq 0 ]]
 then
    printf "Installing git-gui ... "
    yum install -y git-gui && echo "Success" || err_exit "Installing git-gui failed"
@@ -292,7 +292,7 @@ else
 fi
 
 # Install ruby
-if [[ $( yum list "ruby" > /dev/null )$? -eq 0 ]]
+if [[ $( yum list ruby > /dev/null )$? -eq 0 ]]
 then
    printf "Installing ruby ... "
    yum install -y ruby && echo "Success" || err_exit "Install ruby failed"
@@ -301,7 +301,7 @@ else
 fi
 
 # Install node.js
-if [ -f "${tool_home}/${nodejs_source_dir}/${nodejs_file}" ]
+if [[ -f ${tool_home}/${nodejs_source_dir}/${nodejs_file} ]]
 then
    printf "Installing node.js ... "
    tar -xvf  "${tool_home}/${nodejs_source_dir}/${nodejs_file}" -C /opt && \
@@ -314,16 +314,16 @@ printf "Setting mode on %s... " "${nodejs_install_dir}"
 chmod -R 755 "${nodejs_install_dir}" && echo "Success" || \
    err_exit "Failed setting mode on ${nodejs_install_dir}"
 
-printf "Linking ${nodejs_install_dir}/bin/node to /usr/bin/node... "
+printf "Linking %s/bin/node to /usr/bin/node... " "${nodejs_install_dir}"
 ln -s "${nodejs_install_dir}/bin/node" /usr/bin/node && echo "Success" || \
   err_exit "Failed linking ${nodejs_install_dir}/bin/node to /usr/bin/node... "
 
-printf "Linking ${nodejs_install_dir}/bin/npm to /usr/bin/npm... "
+printf "Linking %s/bin/npm to /usr/bin/npm... " "${nodejs_install_dir}"
 ln -s "${nodejs_install_dir}/bin/npm" /usr/bin/npm && echo "Success" || \
   err_exit "Linking ${nodejs_install_dir}/bin/npm to /usr/bin/npm... "
 
 # Install pycharm
-if [ -f "${tool_home}/${pycharm_source_dir}/${pycharm_file}" ]
+if [[ -f ${tool_home}/${pycharm_source_dir}/${pycharm_file} ]]
 then
    printf "Installing pycharm ... "
    tar -xvf  "${tool_home}/${pycharm_source_dir}/${pycharm_file}" -C /opt && \
@@ -336,21 +336,24 @@ printf "Setting mode on %s... " "${pycharm_install_dir}"
 chmod -R 755 "${pycharm_install_dir}" && echo "Success" || \
   err_exit "Failed setting mode on ${pycharm_install_dir}"
 
-printf "Linking ${pycharm_install_dir}/bin/pycharm.sh to /usr/local/bin/pycharm... "
+printf "Linking %s/bin/pycharm.sh to /usr/local/bin/pycharm... " "${pycharm_install_dir}"
 ln -s "${pycharm_install_dir}/bin/pycharm.sh" /usr/local/bin/pycharm && \
   echo "Success" || \
     err_exit "Failed linking ${pycharm_install_dir}/bin/pycharm.sh to /usr/local/bin/pycharm... "
     
-cp "${tool_home}"/pycharm/pycharm.desktop /usr/share/applications/pycharm.desktop
+printf "Installing system GNOME dt-config file for PyCharm... "
+cp "${tool_home}"/pycharm/pycharm.desktop \
+  /usr/share/applications/pycharm.desktop && echo "Success" || \
+      err_exit "Failed installing system PyCharm dt-config file"
 
-printf "Installing ${WorkstationUser}'s GNOME dt-config file for PyCharm... "
+printf "Installing user GNOME dt-config file for PyCharm... "
 cp "${tool_home}"/pycharm/pycharm.desktop \
   "${workstation_user_home}/.local/share/applications/pycharm.desktop" && \
     echo "Success" || \
       err_exit "Failed installing ${WorkstationUser}'s PyCharm dt-config file"
 
 # Install asciidoctor tool chains - rubygem-asciidoctor
-if [ -f "${tool_home}/${asciidoctor_source_dir}/${asciidoctor_file}" ]
+if [[ -f ${tool_home}/${asciidoctor_source_dir}/${asciidoctor_file} ]]
 then
    printf "Installing asciidoctor ... "
    yum install -y "${tool_home}/${asciidoctor_source_dir}/${asciidoctor_file}" \
@@ -360,7 +363,7 @@ else
 fi
 
 # Install Visual Studio Code - code
-if [ -f "${tool_home}/${vscode_source_dir}/${vscode_file}" ]
+if [[ -f ${tool_home}/${vscode_source_dir}/${vscode_file} ]]
 then
    printf "Installing Visual Studio Code ... "
    yum install -y code "${tool_home}/${vscode_source_dir}/${vscode_file}" && \
@@ -370,7 +373,7 @@ else
 fi
 
 # Install Mongo db Client – mongodb-org-shell                                       
-if [ -f "${tool_home}/${mongodb_source_dir}/${mongodb_file}" ]
+if [[ -f ${tool_home}/${mongodb_source_dir}/${mongodb_file} ]]
 then
    printf "Installing Mongo DB shell ... "
    yum install -y "${tool_home}/${mongodb_source_dir}/${mongodb_file}" && \
@@ -390,7 +393,7 @@ fi
 ## printf "Uninstalling epel-release-7-11.noarch ... "
 ## yum -y remove epel-release-7-11.noarch && echo "Success" || err_exit "Uninstalling epel-release-7-11.noarch failed" 
 ## 
-## if [ -f "${tool_home}/${mysql_source_dir}/${epel_6_8_file}" ]
+## if [ -f "${tool_home}/${mysql_source_dir}/${epel_6_8_file}" ]]
 ## then
 ##    printf "Installing epel-release-6-8 rpm ... "
 ##    yum install -y "${tool_home}/${mysql_source_dir}/${epel_6_8_file}" && echo "Success" || err_exit "Installing ${epel_6_8_file} failed"
@@ -404,7 +407,7 @@ fi
 printf "Installing proj ... "
 yum install -y proj && echo "Success" || err_exit "Installing proj failed"
 
-if [ -f "${tool_home}/${mysql_source_dir}/${mysql_file}" ]
+if [[ -f ${tool_home}/${mysql_source_dir}/${mysql_file} ]]
 then
    printf "Installing mysql workbench ... "
    yum install -y "${tool_home}/${mysql_source_dir}/${mysql_file}" && \
@@ -438,7 +441,7 @@ printf "Installing php php-mysql php-pdo php-gd php-mbstring ... "
 yum install -y php php-mysql php-pdo php-gd php-mbstring && echo "Success" || \
   err_exit "Installing php, php-mysql, php-pdo, php-gd, or php-mbstring failed"
 
-if [ -f "${tool_home}/${joomla_source_dir}/${joomla_file}" ]
+if [[ -f ${tool_home}/${joomla_source_dir}/${joomla_file} ]]
 then
    printf "Installing Joomla ... "
    tar -xvf "${tool_home}/${joomla_source_dir}/${joomla_file}" \
