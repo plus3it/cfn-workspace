@@ -11,7 +11,7 @@ jobs:
       name: "Shell Syntax-Check"
       env:
         - TESTENV=shellcheck
-        - TESTCOMMAND="find $TRAVIS_BUILD_DIR -name '*.sh' -type f -print0 | xargs -0 -n1 -t shellcheck > /dev/null"
+        - TESTCOMMAND="find $TRAVIS_BUILD_DIR -name '*.sh' -type f -print0 | xargs -0 -n1 -t shellcheck"
         - SHELLCHECK_OPTS="-s bash"
       before_install:
         - echo $TESTCOMMAND
