@@ -43,7 +43,7 @@ The `ws-tools.sh` installs the following applications/tools.  It references the 
 * [Watchmaker](https://watchmaker.readthedocs.io/) standalone configuration-management tool
 * [GNOME desktop](https://www.gnome.org/) graphical desktop environment
 * Tiger [VNC Server](https://tigervnc.org/)
-* [Firefox](https://www.mozilla.org/en-US/firefox/) Web Browser &mdash; bundled with the previously-listed GNOME Desktop installation
+* [Firefox](https://www.mozilla.org/en-US/firefox/) Web Browser
 * [Anaconda](https://www.anaconda.com) data science tool-set
 * [ATOM](https://ide.atom.io/) integrated development environment
 * [Eclipse](https://www.eclipse.org) integrated development environment for Java
@@ -76,10 +76,9 @@ The `tools.tar.gz` contains the below-listed folders.  Inside each folder is: a 
 * intellij: ideaIC-2018.3.3.tar.gz, jetbrains-idea-ce.desktop
 * Joomla: Joomla_3.9.2-Stable-Full_Package.tar.gz
 * mongo: mongodb-org-shell-4.0.5-1.el7.x86_64.rpm
-* mysql: epel-release-6-8.noarch.rpm, epel-release-7-11.noarch.rpm, mysql80-community-release-el7-1.noarch.rpm, mysql-workbench-community-8.0.13-1.el7.x86_64.rpm
+* mysql: epel-release-6-8.noarch.rpm, epel-release-7-11.noarch.rpm, mysql-workbench-community-8.0.13-1.el7.x86_64.rpm
 * nodejs: node-v11.6.0-linux-x64.tar.xz
 * pycharm: pycharm-community-2018.3.3.tar.gz, pycharm.desktop
-* qt: qt-assistant-4.8.7-2.el7.x86_64.rpm
 * vscode: code-1.30.2-1546901769.el7.x86_64.rpm
 
 ### Creating the Bundle
@@ -175,10 +174,10 @@ Steps:
         * EclipseEmac
         * Git
         * Intellij IDEA
-        * MySQL
+        * MySQL Workbench (refer to Future Enhancement)
         * PyCharm
         * Q4 Assistant
-        * QT Creator
+        * QT Creator (refer to Future Enhancement)
         * Virtual Studio Code
     * The following command line tools, type the following commands to verify: 
         * `gradle -v`
@@ -191,7 +190,26 @@ Steps:
 
 ## Future Enhancements
 
-1. The `ws-tools.sh` only does default installation. Further configuratin for each tool may be required. 
+1. Further research is needed to identify good alternatives for MySQL Workbenach and QT Creator installation.  Refer to the TODO comments in [`ws-tools.sh`](SupportFiles/ws-tools.sh)
+1. The [`ws-tools.sh`](SupportFiles/ws-tools.sh) only does default installation. Further configuratin for each tool may be required. 
+1. Consideration for enhancing automation with [`ws-tools.sh`](SupportFiles/ws-tools.sh)
+    1. Currently only does default installation. Further configuration for each tool may be required.
+	1. Create a function to handle repetative installation tasks.
+	    ~~~
+		RPMLIST=(
+                 PM1
+                 RPM2
+                 @RPMGROUP1
+                 RPM3
+                 ...
+        )
+
+        for TARGET in "${RPMLIST[@]}"
+        do
+            printf "Installing %s... " "${TARGET}"
+            yum install --quiet -y "${TARGET}" && echo "Success" || err_exit "Failed installing ${TARGET}"
+        done
+		~~~
 1. Consideration for further automation using CloudFormation: 
     1. Create EC2 instance profile and instance role
     1. Create Security Group(s)
