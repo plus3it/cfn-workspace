@@ -190,7 +190,7 @@ Steps:
 
 ## Future Enhancements
 
-1. Further research is needed to identify good alternatives for MySQL Workbenach and QT Creator installation.  Refer to the TODO comments in [`ws-tools.sh`](SupportFiles/ws-tools.sh)
+1. Further research is needed to identify good alternatives for MySQL Workbenach and QT Creator installation.  Refer to the Future Enhancement comments in [`ws-tools.sh`](SupportFiles/ws-tools.sh)
 1. The [`ws-tools.sh`](SupportFiles/ws-tools.sh) only does default installation. Further configuratin for each tool may be required. 
 1. Consideration for enhancing automation with [`ws-tools.sh`](SupportFiles/ws-tools.sh)
     1. Currently only does default installation. Further configuration for each tool may be required.

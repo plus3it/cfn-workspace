@@ -60,8 +60,8 @@ vscode_file="code-1.30.2-1546901769.el7.x86_64.rpm"
 mongodb_source_dir="mongo"
 mongodb_file="mongodb-org-shell-4.0.5-1.el7.x86_64.rpm"
 # MySQL constants
-mysql_source_dir="mysql"
-mysql_file="mysql-workbench-community-8.0.13-1.el7.x86_64.rpm"
+## mysql_source_dir="mysql"
+## mysql_file="mysql-workbench-community-8.0.13-1.el7.x86_64.rpm"
 ## epel_6_8_file="epel-release-6-8.noarch.rpm"
 # Joomla constants
 joomla_source_dir="joomla"
@@ -99,6 +99,7 @@ function err_exit {
 if [[ $( yum grouplist -v | grep GNOME ) ]]
 then
    printf "Installing GNOME ... "
+   # Prefer to use `yum install @GROUP` notation but insufficient research-time available to do so at current time
    yum install -y @gnome-desktop && echo "Success" || \
      err_exit "Installing GNOME Desktop failed"
 
@@ -158,6 +159,15 @@ else
    err_exit "${tool_bundle_file} is not found"
 fi
 
+#Install Firefox
+if [[ $( yum list firefox > /dev/null )$? -eq 0 ]]
+then
+   printf "Installing firefox browser ... "
+   yum install -y firefox && echo "Success" || err_exit "Installing firefox failed"
+else
+   err_exit "firefox rpm package is not found"
+fi
+
 # Install Anaconda
 if [[ -f ${tool_home}/${anaconda_dir}/${anaconda_file} ]]
 then
@@ -206,7 +216,7 @@ else
 fi
 
 printf "Linking /opt/eclipse/eclipse into /usr/local/bin... "
-ln -s /opt/eclipse/eclipse /usr/local/bin/eclipse && echo "Success"
+ln -s /opt/eclipse/eclipse /usr/local/bin/eclipse && echo "Success" || \
   err_exit "Failed linking /opt/eclipse/eclipse into /usr/local/bin... "
 
 printf "Installing system Eclipse dt-config file for GNOME... "
@@ -215,8 +225,8 @@ cp "${tool_home}"/eclipse/eclipse.desktop \
     err_exit "Failed installing Eclipse dt-config file for GNOME... "
 
 printf "Installing user Eclipse dt-config file for Eclipse... "
-cp "${tool_home}"/eclipse/eclipse.desktop && \
-  "${workstation_user_home}/.local/share/applications/eclipse.desktop" || \
+cp "${tool_home}"/eclipse/eclipse.desktop \
+  "${workstation_user_home}/.local/share/applications/eclipse.desktop" && echo "Success" || \
       err_exit "Failed installing ${WorkstationUser}'s Eclipse dt-config file"
 
 #Install Intellij
@@ -261,7 +271,7 @@ chmod -R 755 "${gradle_install_dir}" && echo "Success" || \
   err_exit "Failed setting permissions on ${gradle_install_dir}"
   
 printf "Linking %s/bin/gradle to /usr/local/bin/gradle... " "${gradle_install_dir}"
-ln -s "${gradle_install_dir}/bin/gradle" /usr/local/bin/gradle
+ln -s "${gradle_install_dir}/bin/gradle" /usr/local/bin/gradle || \
   err_exit "Failed linking ${gradle_install_dir}/bin/gradle to /usr/local/bin/gradle"
 
 # Install maven
@@ -382,49 +392,6 @@ else
    err_exit "${tool_home}/${mongodb_source_dir}/${mongodb_file} is not found"
 fi
 
-
-## *NO*: NEVER INSTALL RPMS FROM A DIFFERENT ENTERPRISE LINUX RELEASE. *EVER* ##
-## *NO*: NEVER INSTALL RPMS FROM A DIFFERENT ENTERPRISE LINUX RELEASE. *EVER* ##
-## *NO*: NEVER INSTALL RPMS FROM A DIFFERENT ENTERPRISE LINUX RELEASE. *EVER* ##
-## # Install MySQL Workbench - mysql-workbench-community
-## # The "proj" libary is required by mysql-workbench but missing from the epel-release-7-11.
-## # Therefore, remove epel-release-7-11; and install epel-release-6-8.  We will remove epel-release-6-8
-## # and re-install epel-release-7-11 later
-## printf "Uninstalling epel-release-7-11.noarch ... "
-## yum -y remove epel-release-7-11.noarch && echo "Success" || err_exit "Uninstalling epel-release-7-11.noarch failed" 
-## 
-## if [ -f "${tool_home}/${mysql_source_dir}/${epel_6_8_file}" ]]
-## then
-##    printf "Installing epel-release-6-8 rpm ... "
-##    yum install -y "${tool_home}/${mysql_source_dir}/${epel_6_8_file}" && echo "Success" || err_exit "Installing ${epel_6_8_file} failed"
-## else
-##    err_exit "${tool_home}/${mysql_source_dir}/${epel_6_8_file} is not found"
-## fi
-## *NO*: NEVER INSTALL RPMS FROM A DIFFERENT ENTERPRISE LINUX RELEASE. *EVER* ##
-## *NO*: NEVER INSTALL RPMS FROM A DIFFERENT ENTERPRISE LINUX RELEASE. *EVER* ##
-## *NO*: NEVER INSTALL RPMS FROM A DIFFERENT ENTERPRISE LINUX RELEASE. *EVER* ##
-
-printf "Installing proj ... "
-yum install -y proj && echo "Success" || err_exit "Installing proj failed"
-
-if [[ -f ${tool_home}/${mysql_source_dir}/${mysql_file} ]]
-then
-   printf "Installing mysql workbench ... "
-   yum install -y "${tool_home}/${mysql_source_dir}/${mysql_file}" && \
-     echo "Success" || err_exit "Installing mysql-workbench failed"
-else
-   err_exit "${tool_home}/${mysql_source_dir}/${mysql_file} is not found"
-fi
-
-## *NO*: NEVER INSTALL RPMS FROM A DIFFERENT ENTERPRISE LINUX RELEASE. *EVER* ##
-## *NO*: NEVER INSTALL RPMS FROM A DIFFERENT ENTERPRISE LINUX RELEASE. *EVER* ##
-## *NO*: NEVER INSTALL RPMS FROM A DIFFERENT ENTERPRISE LINUX RELEASE. *EVER* ##
-## printf "Installing epel-release-7-11.noarch ... "
-## yum install -y epel-release-7-11.noarch && echo "Success" || err_exit "Installing epel-release-7-11.noarch failed"
-## *NO*: NEVER INSTALL RPMS FROM A DIFFERENT ENTERPRISE LINUX RELEASE. *EVER* ##
-## *NO*: NEVER INSTALL RPMS FROM A DIFFERENT ENTERPRISE LINUX RELEASE. *EVER* ##
-## *NO*: NEVER INSTALL RPMS FROM A DIFFERENT ENTERPRISE LINUX RELEASE. *EVER* ##
-
 # Install Joomla  (Need LAMP stack which includes Apache (2.x+), PHP (5.3.10+)  and MySQL / MariaDB (5.1+)) 
 printf "Installing httpd ... "
 yum install -y httpd && echo "Success" || err_exit "Installing httpd failed"  
@@ -456,9 +423,62 @@ chmod -R 775 /var/www/html/
 systemctl restart httpd
 
 
-# Install Qt Assistant first and creator second.  Don't change the order because of package dependence.
-printf "Installing qt-creator ... "
-yum install -y qt-creator && echo "Success" || err_exit "Installing qt-creator failed"
+## (Future Enhancement) The following implementation for MySQL Workbench installation works but is considered 
+## a exceedingly bad practice. There is not enough time to investigate an adequate alternative at this time.
+## 
+## *NO*: NEVER INSTALL RPMS FROM A DIFFERENT ENTERPRISE LINUX RELEASE. *EVER* ##
+## *NO*: NEVER INSTALL RPMS FROM A DIFFERENT ENTERPRISE LINUX RELEASE. *EVER* ##
+## *NO*: NEVER INSTALL RPMS FROM A DIFFERENT ENTERPRISE LINUX RELEASE. *EVER* ##
+## # Install MySQL Workbench - mysql-workbench-community
+## # The "proj" libary is required by mysql-workbench but missing from the epel-release-7-11.
+## # Therefore, remove epel-release-7-11; and install epel-release-6-8.  We will re-install epel-release-7-11 later
+## printf "Uninstalling epel-release-7-11.noarch ... "
+## yum -y remove epel-release-7-11.noarch && echo "Success" || \
+##    err_exit "Uninstalling epel-release-7-11.noarch failed" 
+## 
+## if [ -f "${tool_home}/${mysql_source_dir}/${epel_6_8_file}" ]]
+## then
+##    printf "Installing epel-release-6-8 rpm ... "
+##    yum install -y "${tool_home}/${mysql_source_dir}/${epel_6_8_file}" && echo "Success" || \
+##       err_exit "Installing ${epel_6_8_file} failed"
+## else
+##    err_exit "${tool_home}/${mysql_source_dir}/${epel_6_8_file} is not found"
+## fi
+## *NO*: NEVER INSTALL RPMS FROM A DIFFERENT ENTERPRISE LINUX RELEASE. *EVER* ##
+## *NO*: NEVER INSTALL RPMS FROM A DIFFERENT ENTERPRISE LINUX RELEASE. *EVER* ##
+## *NO*: NEVER INSTALL RPMS FROM A DIFFERENT ENTERPRISE LINUX RELEASE. *EVER* ##
+
+## printf "Installing proj ... "
+## yum install -y proj && echo "Success" || err_exit "Installing proj failed"
+
+## if [[ -f ${tool_home}/${mysql_source_dir}/${mysql_file} ]]
+## then
+##    printf "Installing mysql workbench ... "
+##    yum install -y "${tool_home}/${mysql_source_dir}/${mysql_file}" && \
+##      echo "Success" || err_exit "Installing mysql-workbench failed"
+## else
+##    err_exit "${tool_home}/${mysql_source_dir}/${mysql_file} is not found"
+## fi
+
+## *NO*: NEVER INSTALL RPMS FROM A DIFFERENT ENTERPRISE LINUX RELEASE. *EVER* ##
+## *NO*: NEVER INSTALL RPMS FROM A DIFFERENT ENTERPRISE LINUX RELEASE. *EVER* ##
+## *NO*: NEVER INSTALL RPMS FROM A DIFFERENT ENTERPRISE LINUX RELEASE. *EVER* ##
+## printf "Installing epel-release-7-11.noarch ... "
+## yum install -y epel-release-7-11.noarch && echo "Success" || \
+##    err_exit "Installing epel-release-7-11.noarch failed"
+## *NO*: NEVER INSTALL RPMS FROM A DIFFERENT ENTERPRISE LINUX RELEASE. *EVER* ##
+## *NO*: NEVER INSTALL RPMS FROM A DIFFERENT ENTERPRISE LINUX RELEASE. *EVER* ##
+## *NO*: NEVER INSTALL RPMS FROM A DIFFERENT ENTERPRISE LINUX RELEASE. *EVER* ##
+
+
+## (Future Enhancement) qt-creator package is not found in the repository. 
+## There is not enough time to investigate an adequate alternative at this time.
+## 
+## # Install creator second.  Don't change the order because of package dependence.
+## printf "Installing qt-creator ... "
+## yum install -y qt-creator && echo "Success" || err_exit "Installing qt-creator failed"
+
+# Install Qt Assistant
 printf "Installing qt-assistant... "
 yum install -y qt-assistant && echo "Success" || err_exit "Installing qt-assistant failed"
 
